@@ -1,0 +1,249 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quản Lí Lịch Trình</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <!-- AI Chatbox -->
+<link rel="stylesheet" href="{{ url_for('static', filename='css/ai-chatbox.css') }}">
+    <style>
+        .flash { padding: 12px; margin: 10px 0; border-radius: 8px; font-size: 14px; }
+        .flash.success { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+        .flash.error { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        .sidebar-tab { text-decoration: none; display: block; }
+        .sidebar-tab.active { background: white; color: #764ba2; font-weight: 700; }
+
+        .fab {
+            position: fixed;
+            top: 30px;
+            right: 30px;
+            width: 56px;
+            height: 56px;
+            background: linear-gradient(135deg, #667eea, #764ba2);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 24px;
+            box-shadow: 0 6px 20px rgba(0,0,0,0.2);
+            text-decoration: none;
+            z-index: 1000;
+            font-weight: bold;
+        }
+        .fab:hover { transform: scale(1.1); }
+
+        .add-event-form, .detail-form, .edit-form {
+            display: {% if show_form or detail_event or edit_event %}block{% else %}none{% endif %};
+        }
+
+        .main-content { padding-top: 80px !important; }
+        .back-link { display: inline-block; margin: 10px 0; color: #667eea; text-decoration: none; }
+        .back-link:hover { text-decoration: underline; }
+    </style>
+</head>
+<body>
+    <div class="layout">
+
+        <!-- SIDEBAR -->
+        <aside class="sidebar">
+            <h2>Lịch trình</h2>
+            <div class="sidebar-tabs">
+                <a href="{{ url_for('main.index', filter='all', add=(1 if show_form else None)) }}"
+                   class="sidebar-tab {{ 'active' if filter == 'all' else '' }}">Tất cả</a>
+                <a href="{{ url_for('main.index', filter='upcoming', add=(1 if show_form else None)) }}"
+                   class="sidebar-tab {{ 'active' if filter == 'upcoming' else '' }}">Sắp diễn ra</a>
+                <a href="{{ url_for('main.index', filter='completed', add=(1 if show_form else None)) }}"
+                   class="sidebar-tab {{ 'active' if filter == 'completed' else '' }}">Đã hoàn thành</a>
+            </div>
+        </aside>
+
+        <!-- MAIN CONTENT -->
+        <div class="main-content">
+            <!-- HEADER + NÚT + CĂN ĐỀU (CHỈ DÀNH CHO MÁY TÍNH) -->
+         <div class="header">
+    <div class="header-inner">
+        <!-- Tiêu đề bên trái -->
+        <div class="header-text">
+            <h1>Quản lý lịch trình</h1>
+            <p>Theo dõi và quản lý lích trình của bạn</p>
+        </div>
+
+        <!-- Tìm kiếm + Lọc ngày + Nút + nằm thẳng hàng bên phải -->
+        <div class="header-right">
+            <form action="{{ url_for('main.search') }}" method="get" class="search-form">
+                <input type="text" name="q" placeholder="Tìm kiếm lịch trình..." value="{{ search_query or '' }}">
+                <button type="submit">Tìm</button>
+            </form>
+
+            <form action="{{ url_for('main.filter_by_date') }}" method="get" class="date-filter">
+                <input type="date" name="datetime" value="{{ selected_datetime or '' }}">
+                <button type="submit">Lọc</button>
+                {% if selected_datetime %}
+                <a href="{{ url_for('main.index') }}" class="clear-filter">Xóa lọc</a>
+                {% endif %}
+            </form>
+
+            {% if not (detail_event or edit_event) %}
+            <a href="{{ url_for('main.index', filter=filter, add=1) }}" class="btn-add-event" title="Thêm lịch trình">
+                <span>Thêm lịch trình</span>
+            </a>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+            <!-- Flash Messages -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="flash {{ category }}">{{ message }}</div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+<!--            &lt;!&ndash; NÚT FAB &ndash;&gt;-->
+<!--            {% if not (detail_event or edit_event) %}-->
+<!--            <a href="{{ url_for('main.index', filter=filter, add=1) }}" class="fab" title="Thêm lịch trình">+</a>-->
+<!--            {% endif %}-->
+
+            <!-- FORM THÊM -->
+            {% if show_form and not (detail_event or edit_event) %}
+            <div class="add-event add-event-form">
+                <h3>Thêm lịch trình Mới</h3>
+                <form method="POST">
+                    <input type="hidden" name="add_event" value="1">
+                    {% with event={'name': '', 'start_time': '', 'end_time': '', 'location': '', 'reminder_minutes': 15} %}
+                        {% include 'partials/event_form.html' %}
+                    {% endwith %}
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="submit" class="btn-add">Thêm lịch trình</button>
+                        <a href="{{ url_for('main.index', filter=filter) }}" class="back-link">Hủy</a>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- CHI TIẾT lịch trình -->
+            {% if detail_event %}
+            <div class="add-event detail-form">
+                <h3>Chi tiết lịch trình</h3>
+                <a href="{{ url_for('main.index', filter=filter) }}" class="back-link">← Quay lại</a>
+                <form>
+                    {% with event=detail_event %}
+                        {% include 'partials/event_form.html' %}
+                    {% endwith %}
+                    <div style="margin-top: 15px;">
+                        <a href="{{ url_for('main.edit_event_detail', event_id=detail_event.id, filter=filter) }}"
+                           style="background: #667eea; color: white; padding: 12px 20px; border-radius: 8px; text-decoration: none;">
+                            Sửa
+                        </a>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- CHỈNH SỬA -->
+            {% if edit_event %}
+            <div class="add-event edit-form">
+                <h3>Chỉnh sửa lịch trình</h3>
+                <a href="{{ url_for('main.view_event_detail', event_id=edit_event.id, filter=filter) }}" class="back-link">← Hủy</a>
+                <form method="POST" action="{{ url_for('main.edit_event_detail', event_id=edit_event.id, filter=filter) }}">
+                    {% with event=edit_event %}
+                        {% include 'partials/event_form.html' %}
+                    {% endwith %}
+                    <div style="display: flex; gap: 10px; margin-top: 10px;">
+                        <button type="submit" class="btn-add">Lưu Thay Đổi</button>
+                        <a href="{{ url_for('main.view_event_detail', event_id=edit_event.id, filter=filter) }}" class="back-link">Hủy</a>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
+
+            <!-- DANH SÁCH -->
+            {% if not (show_form or detail_event or edit_event) %}
+            <div class="events-container">
+                {% if events|length == 0 %}
+                    <p style="color:#888; text-align:center; padding:20px;">Chưa có lịch trình nào.</p>
+                {% else %}
+                    {% for e in events %}
+                    <div class="event-card {{ 'completed' if e.completed else '' }}">
+                        <form method="POST" class="complete-form" style="margin:0;">
+                            <input type="hidden" name="toggle_complete" value="1">
+                            <input type="hidden" name="event_id" value="{{ e.id }}">
+                            <input type="checkbox" class="event-checkbox"
+                                    {{ 'checked' if e.completed else '' }}
+                                    onchange="this.closest('form').submit()">
+                        </form>
+                        <div>
+                            <div class="event-title">
+                                <a href="{{ url_for('main.view_event_detail', event_id=e.id, filter=filter) }}" style="color:inherit; text-decoration:none;">
+                                    {{ e.name }}
+                                </a>
+                            </div>
+                            <div style="font-size:14px; color:#555; margin-top:4px;">
+                                Ngày {{ e.date }} | Thời gian {{ e.time }}<br>
+                                Địa điểm {{ e.location }}
+                            </div>
+                        </div>
+                        <!-- NÚT XÓA -->
+                        <form method="POST" action="{{ url_for('main.delete_event', event_id=e.id) }}" onsubmit="return confirm('Xóa lịch trình này?')">
+                            <button type="submit" class="delete-btn" title="Xóa lịch trình">Xóa</button>
+                        </form>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </div>
+<!-- CHATBOX AI -->
+<div id="ai-chatbox" class="ai-chatbox">
+    <div class="ai-header">
+        <span>Trợ lý AI</span>
+        <button type="button" onclick="toggleChat()" class="ai-close">&times;</button>
+    </div>
+    <div class="ai-messages" id="ai-messages">
+        <div class="ai-message bot">Xin chào! Tôi có thể giúp bạn tạo lịch trình nhanh bằng tiếng Việt.<br>
+            Ví dụ: <i>"Hẹn cà phê với Minh 10h sáng thứ 7 ở Highlands"</i></div>
+    </div>
+    <form id="ai-form" onsubmit="sendMessage(event)">
+        <input type="text" id="ai-input" placeholder="Nhập yêu cầu tạo lịch trình..." autocomplete="off" required>
+        <button type="submit">Gửi</button>
+    </form>
+</div>
+
+<!-- Nút mở chat -->
+<button class="ai-fab" onclick="toggleChat()" title="Mở trợ lý AI">AI</button>
+
+
+
+<!-- POPUP NHẮC NHỜ SIÊU ĐẸP -->
+<div id="reminder-modal" class="reminder-modal">
+    <div class="reminder-popup">
+        <div class="reminder-icon">
+            <span>Nhắc nhở</span>
+        </div>
+        <div class="reminder-body">
+            <h3 id="reminder-title">Sắp tới lịch hẹn</h3>
+            <p id="reminder-detail"></p>
+            <div class="reminder-actions">
+                <button onclick="closeReminder(true)" class="btn-done">Ok</button>
+            </div>
+        </div>
+        <button onclick="closeReminder()" class="close-btn">&times;</button>
+    </div>
+</div>
+
+<!-- Âm thanh "ting ting" -->
+<audio id="reminder-sound" src="https://assets.mixkit.co/sfx/preview/mixkit-bell-notification-933.mp3" preload="auto"></audio>
+
+    <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+
+
+<script>window.APP_EVENTS = {{ events|default([])|tojson|safe }};</script>
+<script src="{{ url_for('static', filename='js/reminder-popup.js') }}"></script>
+
+</body>
+</html>
