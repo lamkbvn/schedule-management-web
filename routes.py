@@ -275,3 +275,43 @@ def delete_event(event_id):
     conn.close()
     flash('Đã xóa sự kiện!', 'success')
     return redirect(url_for('main.index'))
+
+
+# === API LẤY DANH SÁCH SỰ KIỆN (DÙNG ĐỂ REFRESH) ===
+@main_bp.route('/api/events', methods=['GET'])
+def api_events():
+    try:
+        filter_type = request.args.get('filter', 'all')
+        now = datetime.now(VN_TZ)
+
+        all_events = get_all_events()
+        filtered_events = []
+
+        for e in all_events:
+            completed = is_event_completed(e, now)
+            if filter_type == 'all' or \
+                    (filter_type == 'upcoming' and not completed) or \
+                    (filter_type == 'completed' and completed):
+                filtered_events.append({
+                    'id': e['id'],
+                    'name': e['event'],
+                    'date': format_event_date(e['start_time']),
+                    'time': format_event_time(e['start_time'], e['end_time']),
+                    'location': e['location'] or 'Không có địa điểm',
+                    'completed': completed
+                })
+
+        # Render HTML cho danh sách sự kiện
+        html = render_template('partials/events_list.html',
+                               events=filtered_events,
+                               filter=filter_type)
+
+        return jsonify({
+            'success': True,
+            'html': html,
+            'count': len(filtered_events)
+        })
+
+    except Exception as e:
+        print(f"Error in api_events: {e}")
+        return jsonify({'success': False, 'message': str(e)})

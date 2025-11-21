@@ -1,0 +1,32 @@
+<!-- templates/partials/events_list.html -->
+{% if events|length == 0 %}
+    <p style="color:#888; text-align:center; padding:20px;">Chưa có sự kiện nào.</p>
+{% else %}
+    {% for e in events %}
+    <div class="event-card {{ 'completed' if e.completed else '' }}">
+        <form method="POST" style="margin:0;">
+            <input type="hidden" name="toggle_complete" value="1">
+            <input type="hidden" name="event_id" value="{{ e.id }}">
+            <input type="checkbox" class="event-checkbox"
+                   {{ 'checked' if e.completed }}
+                   onchange="this.form.submit()">
+        </form>
+        <div>
+            <div class="event-title">
+                <a href="{{ url_for('main.view_event_detail', event_id=e.id, filter=filter) }}"
+                   style="color:inherit; text-decoration:none;">
+                    {{ e.name }}
+                </a>
+            </div>
+            <div style="font-size:14px; color:#555; margin-top:4px;">
+                Ngày {{ e.date }} | Thời gian {{ e.time }}<br>
+                Địa điểm {{ e.location }}
+            </div>
+        </div>
+                                <!-- NÚT XÓA -->
+                        <form method="POST" action="{{ url_for('main.delete_event', event_id=e.id) }}" onsubmit="return confirm('Xóa lịch trình này?')">
+                            <button type="submit" class="delete-btn" title="Xóa lịch trình">Xóa</button>
+                        </form>
+    </div>
+    {% endfor %}
+{% endif %}
